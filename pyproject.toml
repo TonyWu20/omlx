@@ -64,6 +64,7 @@ dependencies = [
     # mlx-vlm from commit (23e1dff) - Gemma 4 multi-image fix + nested tool parser
     "mlx-vlm @ git+https://github.com/Blaizzy/mlx-vlm@23e1dffd224488141a4f022b6d21d6a730f11507",
     "Pillow>=9.0.0",
+    "pip>=26.0.1",
 ]
 
 [project.optional-dependencies]

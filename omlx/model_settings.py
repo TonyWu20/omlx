@@ -48,14 +48,24 @@ class ModelSettings:
     force_sampling: bool = False
     max_tool_result_tokens: Optional[int] = None
     chat_template_kwargs: Optional[Dict[str, Any]] = None
-    forced_ct_kwargs: Optional[list[str]] = None  # Keys that cannot be overridden by API requests
+    forced_ct_kwargs: Optional[list[str]] = (
+        None  # Keys that cannot be overridden by API requests
+    )
     ttl_seconds: Optional[int] = None  # Auto-unload after idle seconds (None = no TTL)
-    model_type_override: Optional[str] = None  # "llm", "vlm", "embedding", "reranker", or None (auto-detect)
-    model_alias: Optional[str] = None  # API-visible name (alternative to directory name)
-    index_cache_freq: Optional[int] = None  # IndexCache: every Nth layer keeps indexer (DSA models only)
+    model_type_override: Optional[str] = (
+        None  # "llm", "vlm", "embedding", "reranker", or None (auto-detect)
+    )
+    model_alias: Optional[str] = (
+        None  # API-visible name (alternative to directory name)
+    )
+    index_cache_freq: Optional[int] = (
+        None  # IndexCache: every Nth layer keeps indexer (DSA models only)
+    )
     thinking_budget_enabled: bool = False
     thinking_budget_tokens: Optional[int] = None
-    reasoning_parser: Optional[str] = None  # xgrammar builtin name: "qwen", "harmony", "llama", etc.
+    reasoning_parser: Optional[str] = (
+        None  # xgrammar builtin name: "qwen", "harmony", "llama", etc.
+    )
 
     # TurboQuant KV cache (mlx-vlm backend)
     turboquant_kv_enabled: bool = False
@@ -63,7 +73,9 @@ class ModelSettings:
 
     # SpecPrefill (experimental: attention-based sparse prefill for MoE models)
     specprefill_enabled: bool = False
-    specprefill_draft_model: Optional[str] = None  # Path to draft model (must share tokenizer)
+    specprefill_draft_model: Optional[str] = (
+        None  # Path to draft model (must share tokenizer)
+    )
     specprefill_keep_pct: Optional[float] = None  # Keep rate (0.1-0.5, default 0.2)
     specprefill_threshold: Optional[int] = None  # Min tokens to trigger (default 8192)
 
@@ -158,6 +170,7 @@ class ModelSettingsManager:
 
             # Load model settings
             models_data = data.get("models", {})
+            logger.info(f"data {data.items()}")
             self._settings = {}
 
             for model_id, model_data in models_data.items():
@@ -187,7 +200,7 @@ class ModelSettingsManager:
             "models": {
                 model_id: settings.to_dict()
                 for model_id, settings in self._settings.items()
-            }
+            },
         }
 
         try:

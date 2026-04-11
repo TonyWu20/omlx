@@ -302,7 +302,9 @@ class MemorySettings:
     """Process-level memory enforcement settings."""
 
     max_process_memory: str = "auto"  # "auto" (RAM - 8GB), "disabled", or "XX%"
-    prefill_memory_guard: bool = True  # Memory guard: prefill estimation + generation scheduling defer
+    prefill_memory_guard: bool = (
+        True  # Memory guard: prefill estimation + generation scheduling defer
+    )
 
     def get_max_process_memory_bytes(self) -> int | None:
         """
@@ -330,9 +332,7 @@ class MemorySettings:
             # Try parsing as absolute size (e.g., "32GB")
             return parse_size(self.max_process_memory)
         if not 10 <= percent <= 99:
-            raise ValueError(
-                f"max_process_memory must be 10-99%, got {percent}%"
-            )
+            raise ValueError(f"max_process_memory must be 10-99%, got {percent}%")
         return int(get_system_memory() * percent / 100)
 
     def to_dict(self) -> dict[str, Any]:
@@ -402,9 +402,7 @@ class AuthSettings:
             api_key=data.get("api_key"),
             secret_key=data.get("secret_key"),
             skip_api_key_verification=data.get("skip_api_key_verification", False),
-            sub_keys=[
-                SubKeyEntry.from_dict(sk) for sk in data.get("sub_keys", [])
-            ],
+            sub_keys=[SubKeyEntry.from_dict(sk) for sk in data.get("sub_keys", [])],
         )
 
 
@@ -460,12 +458,14 @@ class ModelScopeSettings:
 class SamplingSettings:
     """Default sampling parameters for generation."""
 
-    max_context_window: int = 32768
-    max_tokens: int = 32768
+    max_context_window: int = 128000
+    max_tokens: int = 128000
     temperature: float = 1.0
     top_p: float = 0.95
+    min_p: float = 0.0
     top_k: int = 0
     repetition_penalty: float = 1.0
+    presence_penalty: float = 1.5
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -474,17 +474,19 @@ class SamplingSettings:
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
             "top_p": self.top_p,
+            "min_p": self.min_p,
             "top_k": self.top_k,
             "repetition_penalty": self.repetition_penalty,
+            "presence_penalty": self.presence_penalty,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SamplingSettings:
         """Create from dictionary."""
         return cls(
-            max_context_window=data.get("max_context_window", 32768),
-            max_tokens=data.get("max_tokens", 32768),
-            temperature=data.get("temperature", 1.0),
+            max_context_window=data.get("max_context_window", 128000),
+            max_tokens=data.get("max_tokens", 128000),
+            temperature=data.get("temperature", 0.6),
             top_p=data.get("top_p", 0.95),
             top_k=data.get("top_k", 0),
             repetition_penalty=data.get("repetition_penalty", 1.0),
@@ -548,11 +550,11 @@ class UISettings:
 class ClaudeCodeSettings:
     """Claude Code integration settings."""
 
-    context_scaling_enabled: bool = False
+    context_scaling_enabled: bool = True
     target_context_size: int = 200000  # Claude Code default (200k)
     # Mode: "cloud" = native claude.ai subscription, "local" = route through omlx.
     # Default is "cloud" so upgrades don't silently route traffic to omlx.
-    mode: str = "cloud"
+    mode: str = "local"
     opus_model: str | None = None
     sonnet_model: str | None = None
     haiku_model: str | None = None
@@ -723,9 +725,7 @@ class GlobalSettings:
             if "claude_code" in data:
                 self.claude_code = ClaudeCodeSettings.from_dict(data["claude_code"])
             if "integrations" in data:
-                self.integrations = IntegrationSettings.from_dict(
-                    data["integrations"]
-                )
+                self.integrations = IntegrationSettings.from_dict(data["integrations"])
             if "ui" in data:
                 self.ui = UISettings.from_dict(data["ui"])
 
@@ -835,10 +835,7 @@ class GlobalSettings:
             self.model.max_model_memory = args.max_model_memory
 
         # Memory enforcement settings
-        if (
-            hasattr(args, "max_process_memory")
-            and args.max_process_memory is not None
-        ):
+        if hasattr(args, "max_process_memory") and args.max_process_memory is not None:
             self.memory.max_process_memory = args.max_process_memory
 
         # Scheduler settings
@@ -956,9 +953,7 @@ class GlobalSettings:
 
         # Server validation
         if not 1 <= self.server.port <= 65535:
-            errors.append(
-                f"Invalid port: {self.server.port} (must be 1-65535)"
-            )
+            errors.append(f"Invalid port: {self.server.port} (must be 1-65535)")
 
         valid_log_levels = {"trace", "debug", "info", "warning", "error", "critical"}
         if self.server.log_level.lower() not in valid_log_levels:
@@ -983,9 +978,7 @@ class GlobalSettings:
             try:
                 percent = int(percent_str)
                 if not 10 <= percent <= 99:
-                    errors.append(
-                        f"max_process_memory must be 10-99%, got {percent}%"
-                    )
+                    errors.append(f"max_process_memory must be 10-99%, got {percent}%")
             except ValueError:
                 # Could be absolute size, try parsing
                 try:
@@ -1122,9 +1115,7 @@ def get_settings() -> GlobalSettings:
     """
     global _global_settings
     if _global_settings is None:
-        raise RuntimeError(
-            "Settings not initialized. Call init_settings() first."
-        )
+        raise RuntimeError("Settings not initialized. Call init_settings() first.")
     return _global_settings
 
 
