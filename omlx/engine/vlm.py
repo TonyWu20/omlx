@@ -1388,19 +1388,22 @@ class VLMBatchedEngine(BaseEngine):
         # Can't template system-only messages (most templates require user),
         # so compute by subtracting non-system from full prompt tokens.
         if kwargs.get("specprefill") is not False:
-            non_system = [m for m in messages if m.get("role") not in ("system", "developer")]
-            if len(non_system) < len(messages) and non_system:
-                try:
-                    non_system_prompt = self._tokenizer.apply_chat_template(
-                        non_system, tokenize=False, add_generation_prompt=True,
-                    )
-                    full_tokens = len(self._tokenizer.encode(prompt))
-                    non_system_tokens = len(self._tokenizer.encode(non_system_prompt))
-                    system_end = full_tokens - non_system_tokens
-                    if system_end > 0:
-                        kwargs["specprefill_system_end"] = system_end
-                except Exception as e:
-                    logger.debug(f"SpecPrefill: system_end calc failed: {e}")
+            if tools:
+                logger.debug("SpecPrefill: skipped (tools present)")
+            else:
+                non_system = [m for m in messages if m.get("role") not in ("system", "developer")]
+                if len(non_system) < len(messages) and non_system:
+                    try:
+                        non_system_prompt = self._tokenizer.apply_chat_template(
+                            non_system, tokenize=False, add_generation_prompt=True,
+                        )
+                        full_tokens = len(self._tokenizer.encode(prompt))
+                        non_system_tokens = len(self._tokenizer.encode(non_system_prompt))
+                        system_end = full_tokens - non_system_tokens
+                        if system_end > 0:
+                            kwargs["specprefill_system_end"] = system_end
+                    except Exception as e:
+                        logger.debug(f"SpecPrefill: system_end calc failed: {e}")
 
         async for output in self.stream_generate(
             prompt=prompt,
