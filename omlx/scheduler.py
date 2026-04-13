@@ -2943,7 +2943,7 @@ class Scheduler:
                     import time
                     t0 = time.monotonic()
 
-                    sp_cache = make_prompt_cache(self.model)
+                    sp_cache = cache_to_use if cache_to_use is not None else make_prompt_cache(self.model)
                     all_tokens = tokens_to_process
                     sys_count = getattr(request, '_specprefill_system_tokens', 0)
 
