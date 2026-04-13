@@ -644,7 +644,7 @@ class BatchedEngine(BaseEngine):
             if len(non_system) < len(messages) and non_system:
                 try:
                     non_system_prompt = self._apply_chat_template(
-                        non_system, template_tools, chat_template_kwargs=ct_kwargs
+                        non_system, None, chat_template_kwargs=ct_kwargs
                     )
                     full_tokens = len(self._tokenizer.encode(prompt))
                     non_system_tokens = len(self._tokenizer.encode(non_system_prompt))
