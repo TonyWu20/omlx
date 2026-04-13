@@ -649,6 +649,7 @@ class BatchedEngine(BaseEngine):
                     full_tokens = len(self._tokenizer.encode(prompt))
                     non_system_tokens = len(self._tokenizer.encode(non_system_prompt))
                     system_end = full_tokens - non_system_tokens
+                    logger.debug(f"SpecPrefill: system_end={system_end}, full={full_tokens}, non_sys={non_system_tokens}")
                     if system_end > 0:
                         kwargs["specprefill_system_end"] = system_end
                 except Exception as e:
