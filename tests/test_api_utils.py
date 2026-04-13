@@ -918,6 +918,11 @@ class TestConvertAnthropicToolsToInternal:
 
         assert result[0]["function"]["name"] == "search"
 
+    def test_convert_tool_with_none_input_schema(self):
+        tool_dict = {"name": "web_search", "input_schema": None}
+        result = convert_anthropic_tools_to_internal([tool_dict])
+        assert result[0]["function"]["parameters"] == {}
+
 
 class TestConvertInternalToAnthropicResponse:
     """Tests for convert_internal_to_anthropic_response function."""

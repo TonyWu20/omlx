@@ -2614,6 +2614,9 @@ class Scheduler:
         # Clean up protocol-specific output parser session
         self._cleanup_output_parser_session(request_id)
 
+        # Clean up SpecPrefill RoPE patches if this was the active specprefill request
+        self._cleanup_specprefill(request_id)
+
         # Clean up VLM adapter state to prevent contamination
         if hasattr(self.model, 'clear_vlm_position_state'):
             self.model.clear_vlm_position_state()
@@ -3636,6 +3639,9 @@ class Scheduler:
             # Move any running requests back to waiting so they
             # can be rescheduled with a fresh BatchGenerator.
             self._reschedule_running_requests()
+            # Clean up SpecPrefill RoPE if the active specprefill request was interrupted
+            if self._specprefill_active_request_id is not None:
+                self._cleanup_specprefill(self._specprefill_active_request_id)
 
         except (TypeError, AttributeError, ValueError) as e:
             if self._is_cache_corruption_error(e):

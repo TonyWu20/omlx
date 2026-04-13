@@ -305,6 +305,20 @@ class TestAnthropicTool:
 
         assert tool.cache_control == {"type": "ephemeral"}
 
+    def test_builtin_tool_without_input_schema(self):
+        """Test that built-in tools can be created without input_schema."""
+        tool = AnthropicTool.model_validate({"name": "web_search"})
+        assert tool.name == "web_search"
+        assert tool.input_schema is None
+
+    def test_builtin_tool_with_type_field_ignored(self):
+        """Test that extra 'type' field is silently dropped for built-in tools."""
+        tool = AnthropicTool.model_validate({"name": "web_search", "type": "web_search_20250305"})
+        assert tool.name == "web_search"
+        assert tool.input_schema is None
+        # Verify `type` is NOT accessible as a model field
+        assert "type" not in tool.model_fields
+
 
 class TestToolChoice:
     """Tests for ToolChoice model."""

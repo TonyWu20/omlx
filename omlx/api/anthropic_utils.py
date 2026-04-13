@@ -707,7 +707,7 @@ def convert_anthropic_tools_to_internal(
                 "function": {
                     "name": tool_dict.get("name", ""),
                     "description": tool_dict.get("description", ""),
-                    "parameters": tool_dict.get("input_schema", {}),
+                    "parameters": tool_dict.get("input_schema") or {},
                 },
             }
         )

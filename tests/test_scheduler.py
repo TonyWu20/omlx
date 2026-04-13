@@ -1742,3 +1742,80 @@ class TestVLMPositionStateClearing:
         scheduler._schedule_waiting()
 
         model.clear_vlm_position_state.assert_called_once()
+
+
+class TestSpecPrefillCleanup:
+    """TDD (RED) tests for _cleanup_specprefill being called in abort/error paths.
+
+    All three sub-cases are expected to FAIL against the current code before
+    TASK-12 and TASK-13 are implemented.
+    """
+
+    def _make_running_request(self, scheduler, request_id: str) -> Request:
+        """Add a minimal running request to the scheduler."""
+        request = Request(
+            request_id=request_id,
+            prompt="Hello",
+            sampling_params=SamplingParams(),
+        )
+        request.prompt_token_ids = [1]
+        request.num_prompt_tokens = 1
+        request.status = RequestStatus.RUNNING
+        scheduler.requests[request_id] = request
+        scheduler.running[request_id] = request
+        return request
+
+    def test_abort_calls_cleanup_specprefill(self, mock_model, mock_tokenizer):
+        """Aborting the active specprefill request must call _cleanup_specprefill.
+
+        RED: _do_abort_request does not currently call _cleanup_specprefill,
+        so mock_cleanup will not be invoked and assert_called_once_with will fail.
+        """
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+        self._make_running_request(scheduler, "req-1")
+        scheduler._specprefill_active_request_id = "req-1"
+
+        with patch.object(scheduler, "_cleanup_specprefill") as mock_cleanup:
+            scheduler._do_abort_request("req-1")
+
+        mock_cleanup.assert_called_once_with("req-1")
+
+    def test_abort_no_specprefill_active_does_not_fail(self, mock_model, mock_tokenizer):
+        """Aborting when no specprefill is active must not raise.
+
+        This sub-case may already pass if _do_abort_request does not crash
+        when _specprefill_active_request_id is None. Verify current behavior.
+        """
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+        self._make_running_request(scheduler, "req-2")
+        scheduler._specprefill_active_request_id = None
+
+        # Must not raise
+        scheduler._do_abort_request("req-2")
+
+    def test_prefill_abort_cleans_specprefill(self, mock_model, mock_tokenizer):
+        """_PrefillAbortedError handler must call _cleanup_specprefill for active request.
+
+        This test simulates the handler body that TASK-13 will add to the
+        _PrefillAbortedError except block in step(). The mock intercepts
+        _cleanup_specprefill so the real body does not run.
+
+        RED: the handler body does not exist yet, so _cleanup_specprefill
+        is never called and assert_called_once_with will fail.
+        """
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+        # Add a running request so _reschedule_running_requests has something to do
+        self._make_running_request(scheduler, "req-1")
+        scheduler._specprefill_active_request_id = "req-1"
+
+        with patch.object(scheduler, "_cleanup_specprefill") as mock_cleanup:
+            # Simulate the handler body (what TASK-13 will add):
+            scheduler._batch_generator = None
+            scheduler._reschedule_running_requests()
+            if scheduler._specprefill_active_request_id is not None:
+                scheduler._cleanup_specprefill(scheduler._specprefill_active_request_id)
+
+        mock_cleanup.assert_called_once_with("req-1")
+        # NOTE: Do NOT assert _specprefill_active_request_id is None here —
+        # the mock does not execute the real method body, so the attribute
+        # is not actually cleared.

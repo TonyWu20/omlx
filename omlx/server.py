@@ -1207,6 +1207,7 @@ def init_server(
 
 
 _KEEPALIVE_SENTINEL = object()
+_DISCONNECT_CONFIRM = 3
 
 
 async def _safe_anext(ait):
@@ -1242,6 +1243,7 @@ async def _with_sse_keepalive(
     ait = generator.__aiter__()
     task = None
     keepalive_elapsed = 0.0
+    disconnect_count = 0
 
     # Send initial keepalive immediately so clients with short read
     # timeouts (e.g. openclaw ~15s) don't disconnect during prefill.
@@ -1263,13 +1265,22 @@ async def _with_sse_keepalive(
                     try:
                         disconnected = await http_request.is_disconnected()
                         if disconnected:
-                            logger.info("Client disconnected during streaming (is_disconnected), cancelling")
-                            task.cancel()
-                            try:
-                                await task
-                            except (asyncio.CancelledError, StopAsyncIteration):
-                                pass
-                            return
+                            disconnect_count += 1
+                            if disconnect_count >= _DISCONNECT_CONFIRM:
+                                logger.info("Client disconnected during streaming (is_disconnected), cancelling")
+                                task.cancel()
+                                try:
+                                    await task
+                                except (asyncio.CancelledError, StopAsyncIteration):
+                                    pass
+                                return
+                            else:
+                                logger.debug(
+                                    "is_disconnected() returned True (%d/%d), waiting for confirmation",
+                                    disconnect_count, _DISCONNECT_CONFIRM,
+                                )
+                        else:
+                            disconnect_count = 0
                     except Exception as e:
                         logger.debug(f"is_disconnected() check failed: {e}")
                         pass  # is_disconnected() can fail if scope is already closed
@@ -1315,18 +1326,28 @@ async def _run_with_disconnect_guard(
     to free scheduler/GPU resources.
     """
     task = asyncio.create_task(coro)
+    disconnect_count = 0
     while not task.done():
         done, _ = await asyncio.wait({task}, timeout=poll_interval)
         if done:
             break
         if await http_request.is_disconnected():
-            logger.info("Client disconnected, cancelling generation task")
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-            return None
+            disconnect_count += 1
+            if disconnect_count >= _DISCONNECT_CONFIRM:
+                logger.info("Client disconnected, cancelling generation task")
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, StopAsyncIteration):
+                    pass
+                return task.result() if not task.cancelled() else None
+            else:
+                logger.debug(
+                    "is_disconnected() returned True (%d/%d), waiting for confirmation",
+                    disconnect_count, _DISCONNECT_CONFIRM,
+                )
+        else:
+            disconnect_count = 0
     return task.result()
 
 
@@ -1346,6 +1367,7 @@ async def _with_json_keepalive(
     """
     task = asyncio.ensure_future(coro)
     keepalive_elapsed = 0.0
+    disconnect_count = 0
 
     yield " "
 
@@ -1358,13 +1380,22 @@ async def _with_json_keepalive(
                 try:
                     disconnected = await http_request.is_disconnected()
                     if disconnected:
-                        logger.info("Client disconnected during non-streaming response, cancelling")
-                        task.cancel()
-                        try:
-                            await task
-                        except (asyncio.CancelledError, StopAsyncIteration):
-                            pass
-                        return
+                        disconnect_count += 1
+                        if disconnect_count >= _DISCONNECT_CONFIRM:
+                            logger.info("Client disconnected during streaming (is_disconnected), cancelling")
+                            task.cancel()
+                            try:
+                                await task
+                            except (asyncio.CancelledError, StopAsyncIteration):
+                                pass
+                            return
+                        else:
+                            logger.debug(
+                                "is_disconnected() returned True (%d/%d), waiting for confirmation",
+                                disconnect_count, _DISCONNECT_CONFIRM,
+                            )
+                    else:
+                        disconnect_count = 0
                 except Exception:
                     pass
             keepalive_elapsed += disconnect_poll

@@ -116,7 +116,7 @@ class AnthropicTool(BaseModel):
 
     name: str
     description: str | None = None
-    input_schema: dict[str, Any]
+    input_schema: dict[str, Any] | None = None
     cache_control: dict[str, str] | None = None
 
 
